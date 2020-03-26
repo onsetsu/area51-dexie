@@ -1,0 +1,11 @@
+#log .entry:nth-child(odd) {
+    background-color: lightgray;
+}
+
+#log .entry:nth-child(even) {
+    background-color: #e6e6e6;
+}
+
+#log .entry .important {
+    background-color: salmon;
+}

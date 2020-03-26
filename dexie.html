@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Understanding Dexie Promises</title>
+    <link href="log.css" rel="stylesheet"/>
+    <script src="dexie.js"></script>
+    <script src="log.js"></script>
+</head>
+<body>
+<a href="./index.html">< home</a>
+<h1>Dexie.Promise</h1>
+<h3>Log</h3>
+</body>
+<script type="text/javascript">
+/*    //
+    // Define your database
+    //
+    var db = new Dexie("friend_database");
+    db.version(1).stores({
+        friends: 'name,shoeSize'
+    });
+
+    //
+    // Put some data into it
+    //
+    db.friends.put({name: "Nicolas", shoeSize: 8}).then (function(){
+        //
+        // Then when data is stored, read from it
+        //
+        return db.friends.get('Nicolas');
+    }).then(function (friend) {
+        //
+        // Display the result
+        //
+        log ("Nicolas has shoe size " + friend.shoeSize);
+    }).catch(function(error) {
+        //
+        // Finally don't forget to catch any error
+        // that could have happened anywhere in the
+        // code blocks above.
+        //
+        log ("Ooops: " + error);
+    });*/
+function cLog(c) {
+    return function l(msg) {
+        return log(`<span style='background-color: ${c}'>${msg}</span>`);
+    }
+}
+
+{
+    const l = cLog('limegreen');
+    // Create a PSD scope
+    Dexie.Promise.newPSD (function () {
+
+        // Put something in it.
+        l('set var on PSD to 3');
+        Dexie.Promise.PSD.test = 3;
+
+        // Create a promise that uses it
+        new Dexie.Promise(function (resolve, reject) {
+            setTimeout(resolve, 200);
+        }).then (function () {
+            hr();
+            // This callback will get same PSD instance as was active when .then() was called
+            l(`expect var on PSD to be 3: ` + Dexie.Promise.PSD.test);
+        });
+    });
+
+    l(`expect var outside that scope NOT to be 3: ` + Dexie.Promise.PSD.test);
+}
+{
+    const log = cLog('beige');
+    // Create a PSD scope
+    Dexie.Promise.newPSD (function () {
+
+        // Put something in it.
+        log('set var on PSD to 5');
+        Dexie.Promise.PSD.test = 5;
+
+        // Create a promise that uses it
+        new Dexie.Promise(function (resolve, reject) {
+            setTimeout(resolve, 500);
+        }).then (async function () {
+            hr();
+
+            // This callback will get same PSD instance as was active when .then() was called
+            log(`expect var on PSD to be 5: (BEFORE AWAIT)` + Dexie.Promise.PSD.test);
+            await new Promise(res => setTimeout(res, 200));
+            log(`expect var on PSD to be 5 (AFTER AWAIT): ` + Dexie.Promise.PSD.test);
+            Dexie.Promise.newPSD (async function () {
+                Dexie.Promise.PSD.test = 6;
+                log(`expect var on PSD to be 6 (inner BEFORE AWAIT new scope): ` + Dexie.Promise.PSD.test);
+                await 3;
+                log(`expect var on PSD to be 6 (inner AFTER AWAIT new scope): ` + Dexie.Promise.PSD.test);
+            });
+            log(`expect var on PSD to be 5 (AFTER new scope): ` + Dexie.Promise.PSD.test);
+        });
+    });
+
+    log(`expect var outside that scope NOT to be 5: ` + Dexie.Promise.PSD.test);
+}
+{
+    const log = cLog('steelblue');
+    // Create a PSD scope
+    Dexie.Promise.newPSD (async function () {
+
+        // Put something in it.
+        log('set var on PSD to 7');
+        Dexie.Promise.PSD.test = 7;
+
+        // Create a promise that uses it
+        Promise.resolve().then(async function (resolve, reject) {
+            hr();
+            // This callback will get same PSD instance as was active when .then() was called
+            log(`expect var on PSD to be 7 (BEFORE AWAIT 1): ` + Dexie.Promise.PSD.test);
+            log(`depending on what we await here, a <span class='important'> Promise or a non Promise</span>, Dexie will work as intended or not:
+ for non Promises, the <span class='important'> order of execution will also be different</span> (could be a Dexie Bug, due to manual task scheduling and the inability of dexie to recognize the await operator on a non-promise)`);
+            await 1;
+            log(`expect var on PSD to be 7 (AFTER AWAIT 1): <span class='important'>${Dexie.Promise.PSD.test}</span> <-- awaiting a non-Promise`);
+            setTimeout(resolve, 1000);
+        }).then(async function (resolve, reject) {
+            // This callback will get same PSD instance as was active when .then() was called
+            log(`expect var on PSD to be 7 (BEFORE AWAIT): ` + Dexie.Promise.PSD.test);
+            await 'not a Promise';
+            log(`expect var on PSD to be 7 (AFTER AWAIT): <span class='important'>${Dexie.Promise.PSD.test}</span> <-- awaiting a non-Promise`);
+            setTimeout(resolve, 1000);
+        }).then(async function (resolve, reject) {
+            // This callback will get same PSD instance as was active when .then() was called
+            log(`expect var on PSD to be 7 (BEFORE AWAIT): ` + Dexie.Promise.PSD.test);
+            await Promise.resolve();
+            log(`expect var on PSD to be 7 (AFTER AWAIT): <span class='important'>${Dexie.Promise.PSD.test}</span> <-- awaiting a Promise`);
+            setTimeout(resolve, 1000);
+        });
+    });
+
+    log(`expect var outside that scope NOT to be 7: ` + Dexie.Promise.PSD.test);
+}
+
+</script>
+</html>

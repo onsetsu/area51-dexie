@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Understanding zone.js</title>
+    <link href="log.css" rel="stylesheet"/>
+    <script src="zone.js"></script>
+    <script src="log.js"></script>
+</head>
+<body>
+<a href="./index.html">< home</a>
+<h1>zone.js</h1>
+<h3>Log</h3>
+</body>
+<script type="text/javascript">
+    {
+        // RootZone is ambient and it is indistinguishable from no Zone.
+        let rootZone = Zone.current;
+
+        // We create a new zone by forking an existing zone.
+        let zoneA = rootZone.fork({name: 'zoneA'});
+        // Each zone has a name for debugging
+        log('rootZone.name: ' + rootZone.name);
+        log('zoneA.name: ' + zoneA.name);
+        log('zoneA.parent.name: ' + zoneA.parent.name);
+
+        function main() {
+            // zones can be entered/exited using the `run or runGuarded or runTask` method only.
+            zoneA.run(function fnOuter() {
+                // inside the `run` method the Zone.current has been updated
+                log('Zone.current: ' + Zone.current);
+                // Mental model: Each stack frame is associated with a zone
+                logStack();
+
+                // Zones are nested in the same way that stack frames are nested.
+                rootZone.run(function fnInner() {
+                    // There is no reason why a nested stack frame must be
+                    // a child of parent stack frame zone.
+                    // This is how one can "escape" a zone.
+                    log('Zone.current: ' + Zone.current);
+                    logStack();
+                });
+            });
+        }
+
+        main();
+        hr()
+    }
+
+    {
+        let rootZone = Zone.current;
+        let zoneA = rootZone.fork({name: 'A'});
+
+        log('Zone.current'+Zone.current);
+        // The zone at the time of setTimeout invocation is rootZone
+        logStack('call setTimeout');
+        setTimeout(function timeoutCb1() {
+            // The callback is executed in the rootZone.
+            log('Zone.current.name'+Zone.current.name);
+            logStack('in Timeout callback')
+            hr()
+        }, 0);
+    }
+
+    {
+
+        let rootZone = Zone.current;
+// LibZone represents some third party library which developer does
+// not control. This zone is here only for illustrative purposes.
+// In practice it is unlikely that most third-party libraries would
+// have such fine grained zone control.
+        let libZone = rootZone.fork({name: 'libZone'});
+// Represents a zone of an application which the developer does
+// control
+        let appZone = rootZone.fork({name: 'appZone'});
+        let appZone1 = rootZone.fork({name: 'appZone1'});
+
+// In this Example we try to demonstrate the difference between
+// resolving a promise and listening to a promise. Promise
+// resolution could happen in a third party libZone.
+        let promise = libZone.run(() => {
+            return new Promise((resolve, reject) => {
+                log('expect(Zone.current).toBe(libZone): ' + Zone.current.name);
+                // The Promise can be resolved immediately or at some later
+                // point in time as in this example.
+                setTimeout(() => {
+                    log('expect(Zone.current).toBe(libZone): ' + Zone.current.name);
+                    // Promise is resolved in libZone, but this does not affect
+                    // the promise listeners.
+                    resolve('OK');
+                }, 500);
+            });
+        });
+
+        appZone.run(() => {
+            promise.then(() => {
+                // Because the developer controls which zone the .then()
+                // executes, they will expect that the callback will execute in
+                // the same zone, in this case the appZone.
+                log('expect(Zone.current).toBe(appZone): ' + Zone.current.name);
+            });
+        });
+
+        appZone1.run(async () => {
+            log('before await expect(Zone.current).toBe(appZone1): ' + Zone.current.name);
+            await promise.then(() => {
+                log('before await (then) expect(Zone.current).toBe(appZone1): ' + Zone.current.name);
+            });
+            log(`<span class="important">zone.js does not support zone preservation over await expressions!!!
+[zone.js version 0.10.3 (https://unpkg.com/zone.js@0.10.3/dist/zone.js); Google Chrome version 80.0.3987.149]
+we expect to still have appZone1 after the await statement, but get the <root> zone :(</span>`);
+            log('after await expect(Zone.current).toBe(appZone1): ' + Zone.current.name);
+
+            promise.then(() => {
+                // And also different thenCallback can be invoked in different
+                // zone.
+            }).then(() => {
+                // And also different thenCallback can be invoked in different
+                // zone.
+                log('expect(Zone.current).toBe(appZone1): ' + Zone.current.name);
+            }).then(() => {
+                // And also different thenCallback can be invoked in different
+                // zone.
+                log('expect(Zone.current).toBe(appZone1): ' + Zone.current.name);
+            });
+        });
+
+    }
+</script>
+</html>
