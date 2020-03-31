@@ -119,13 +119,14 @@ function cLog(c) {
             log(`expect var on PSD to be 7 (BEFORE AWAIT 1): ` + Dexie.Promise.PSD.test);
             log(`depending on what we await here, a <span class='important'> Promise or a non Promise</span>, Dexie will work as intended or not:
  for non Promises, the <span class='important'> order of execution will also be different</span> (could be a Dexie Bug, due to manual task scheduling and the inability of dexie to recognize the await operator on a non-promise)`);
-            await 1;
+            debugger
+            await Promise.resolve();
             log(`expect var on PSD to be 7 (AFTER AWAIT 1): <span class='important'>${Dexie.Promise.PSD.test}</span> <-- awaiting a non-Promise`);
             setTimeout(resolve, 1000);
         }).then(async function (resolve, reject) {
             // This callback will get same PSD instance as was active when .then() was called
             log(`expect var on PSD to be 7 (BEFORE AWAIT): ` + Dexie.Promise.PSD.test);
-            await 'not a Promise';
+            await Promise.resolve();
             log(`expect var on PSD to be 7 (AFTER AWAIT): <span class='important'>${Dexie.Promise.PSD.test}</span> <-- awaiting a non-Promise`);
             setTimeout(resolve, 1000);
         }).then(async function (resolve, reject) {
