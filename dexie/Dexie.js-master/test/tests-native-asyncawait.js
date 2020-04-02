@@ -1,6 +1,6 @@
 import Dexie from 'dexie';
 import {DexiePromise} from './../src/helpers/promise.js';
-const {module, test, equal, ok} = QUnit;
+const {module, test, strictEqual, ok, notStrictEqual} = QUnit;
 import {resetDatabase, spawnedTest, promisedTest} from './dexie-unittest-utils';
 import {isIdbAndPromiseCompatible} from './is-idb-and-promise-compatible';
 
@@ -16,6 +16,10 @@ var db = new Dexie("TestDBTranx");
 db.version(1).stores({
     items: "id"
 });
+
+const signalError = e => {
+    ok(false, `Error: ${e.stack || e}`);
+};
 
 module("asyncawait2", {
     setup: function (assert) {
@@ -40,13 +44,12 @@ test("PSD preserved in DexiePromise", function(assert) {
         new Promise(function (resolve, reject) {
             setTimeout(resolve, 200);
         }).then (function () {
-            hr();
             // This callback will get same PSD instance as was active when .then() was called
-            ok(DexiePromise.PSD.test === 3, `expect var on PSD to be 3: ` + DexiePromise.PSD.test);
-        }).finally(done);
+            strictEqual(DexiePromise.PSD.test, 3, `expect var on PSD to be 3: ` + DexiePromise.PSD.test);
+        }).catch(signalError).then(done);
     });
 
-    ok(DexiePromise.PSD.test !== 3, `expect var outside that scope NOT to be 3: ` + DexiePromise.PSD.test);
+    notStrictEqual(DexiePromise.PSD.test, 3, `expect var outside that scope NOT to be 3: ` + DexiePromise.PSD.test);
 });
 
 test("PSD preserved over awaiting a Non-Promise and NESTED newPSDs", function(assert) {
@@ -63,20 +66,20 @@ test("PSD preserved over awaiting a Non-Promise and NESTED newPSDs", function(as
         }).then (async function () {
 
             // This callback will get same PSD instance as was active when .then() was called
-            ok(DexiePromise.PSD.test === 5, `expect var on PSD to be 5: (BEFORE AWAIT)` + DexiePromise.PSD.test);
+            strictEqual(DexiePromise.PSD.test, 5, `expect var on PSD to be 5: (BEFORE AWAIT)` + DexiePromise.PSD.test);
             await new Promise(res => setTimeout(res, 200));
-            ok(DexiePromise.PSD.test === 5, `expect var on PSD to be 5 (AFTER AWAIT): ` + DexiePromise.PSD.test);
+            strictEqual(DexiePromise.PSD.test, 5, `expect var on PSD to be 5 (AFTER AWAIT): ` + DexiePromise.PSD.test);
             DexiePromise.newPSD (async function () {
                 DexiePromise.PSD.test = 6;
-                ok(DexiePromise.PSD.test === 6, `expect var on PSD to be 6 (inner BEFORE AWAIT new scope): ` + DexiePromise.PSD.test);
+                strictEqual(DexiePromise.PSD.test, 6, `expect var on PSD to be 6 (inner BEFORE AWAIT new scope): ` + DexiePromise.PSD.test);
                 await 3;
-                ok(DexiePromise.PSD.test === 6, `expect var on PSD to be 6 (inner AFTER AWAIT new scope): ` + DexiePromise.PSD.test);
+                strictEqual(DexiePromise.PSD.test, 6, `expect var on PSD to be 6 (inner AFTER AWAIT new scope): ` + DexiePromise.PSD.test);
             }).finally(done);
-            ok(DexiePromise.PSD.test === 5, `expect var on PSD to be 5 (AFTER new scope): ` + DexiePromise.PSD.test);
+            strictEqual(DexiePromise.PSD.test, 5, `expect var on PSD to be 5 (AFTER new scope): ` + DexiePromise.PSD.test);
         });
     });
 
-    ok(DexiePromise.PSD.test !== 5, `expect var outside that scope NOT to be 5: ` + DexiePromise.PSD.test);
+    notStrictEqual(DexiePromise.PSD.test, 5, `expect var outside that scope NOT to be 5: ` + DexiePromise.PSD.test);
 });
 
 test("Should be able to use global Promise within transaction scopes2", function(assert) {
@@ -90,54 +93,212 @@ test("Should be able to use global Promise within transaction scopes2", function
         // Create a promise that uses it
         Promise.resolve().then(async function (resolve, reject) {
             // This callback will get same PSD instance as was active when .then() was called
-            ok(Promise.PSD.test === 7, `expect var on PSD to be 7 (BEFORE AWAIT 1): ` + Promise.PSD.test);
+            strictEqual(Promise.PSD.test, 7, `expect var on PSD to be 7 (BEFORE AWAIT 1): ` + Promise.PSD.test);
             // log(`depending on what we await here, a <span class='important'> Promise or a non Promise</span>, Dexie will work as intended or not:
             //   for non Promises, the <span class='important'> order of execution will also be different</span> (could be a Dexie Bug, due to manual task scheduling and the inability of dexie to recognize the await operator on a non-promise)`);
             // log(`Insight/Bug: <span class='important'>if the first await in a chain has a non-Promise, the PSD will be lost and reverted back to the global PSD; until there is </span>`);
             await 3;
-            ok(Promise.PSD.test === 7, `expect var on PSD to be 7 (AFTER AWAIT 1): ${DexiePromise.PSD.test} <-- awaiting a non-Promise`);
+            strictEqual(Promise.PSD.test, 7, `expect var on PSD to be 7 (AFTER AWAIT 1): ${DexiePromise.PSD.test} <-- awaiting a non-Promise`);
             setTimeout(resolve, 1000);
         }).then(async function (resolve, reject) {
             // This callback will get same PSD instance as was active when .then() was called
-            ok(Promise.PSD.test === 7, `expect var on PSD to be 7 (BEFORE AWAIT): ` + DexiePromise.PSD.test);
+            strictEqual(Promise.PSD.test, 7, `expect var on PSD to be 7 (BEFORE AWAIT): ` + DexiePromise.PSD.test);
             await Promise.resolve();
-            ok(Promise.PSD.test === 7, `expect var on PSD to be 7 (AFTER AWAIT): <span class='important'>${DexiePromise.PSD.test}</span> <-- awaiting a non-Promise`);
+            strictEqual(Promise.PSD.test, 7, `expect var on PSD to be 7 (AFTER AWAIT): <span class='important'>${DexiePromise.PSD.test}</span> <-- awaiting a non-Promise`);
             setTimeout(resolve, 1000);
         }).then(async function (resolve, reject) {
             // This callback will get same PSD instance as was active when .then() was called
-            ok(Promise.PSD.test === 7, `expect var on PSD to be 7 (BEFORE AWAIT): ` + DexiePromise.PSD.test);
+            strictEqual(Promise.PSD.test, 7, `expect var on PSD to be 7 (BEFORE AWAIT): ` + DexiePromise.PSD.test);
             await 'not a promise';
-            ok(Promise.PSD.test === 7, `expect var on PSD to be 7 (AFTER AWAIT): <span class='important'>${DexiePromise.PSD.test}</span> <-- awaiting a non-Promise`);
+            strictEqual(Promise.PSD.test, 7, `expect var on PSD to be 7 (AFTER AWAIT): <span class='important'>${DexiePromise.PSD.test}</span> <-- awaiting a non-Promise`);
             setTimeout(resolve, 1000);
         }).then(async function (resolve, reject) {
             // This callback will get same PSD instance as was active when .then() was called
-            ok(Promise.PSD.test === 7, `expect var on PSD to be 7 (BEFORE AWAIT): ` + DexiePromise.PSD.test);
+            strictEqual(Promise.PSD.test, 7, `expect var on PSD to be 7 (BEFORE AWAIT): ` + DexiePromise.PSD.test);
             await Promise.resolve();
-            ok(Promise.PSD.test === 7, `expect var on PSD to be 7 (AFTER AWAIT): <span class='important'>${Promise.PSD.test}</span> <-- awaiting a Promise`);
+            strictEqual(Promise.PSD.test, 7, `expect var on PSD to be 7 (AFTER AWAIT): <span class='important'>${Promise.PSD.test}</span> <-- awaiting a Promise`);
             setTimeout(resolve, 1000);
         }).finally(done);
     });
 
-    ok(DexiePromise.PSD.test !== 7, `expect var outside that scope NOT to be 7: ` + DexiePromise.PSD.test);
+    notStrictEqual(DexiePromise.PSD.test, 7, `expect var outside that scope NOT to be 7: ` + DexiePromise.PSD.test);
 });
 
 test("Should be able to use global Promise within transaction scopes", function(assert) {
     let done = assert.async();
-    db.transaction('rw', db.items, trans => {
-        return window.Promise.resolve().then(()=> {
-            ok(Dexie.currentTransaction == trans, "Transaction scopes should persist through Promise.resolve()");
-            return db.items.add({ id: "foobar" });
-        }).then(()=>{
-            return Promise.resolve();
-        }).then(()=>{
-            ok(Dexie.currentTransaction == trans, "Transaction scopes should persist through Promise.resolve()");
-            return db.items.get('foobar');
-        });
-    }).then (function(foobar){
-        equal(foobar.id, 'foobar', "Transaction should have lived throughout the Promise.resolve() chain");
-    }).catch (e => {
-        ok(false, `Error: ${e.stack || e}`);
-    }).finally(done);
+    let innerPSD;
+    let outerPSD = DexiePromise.PSD;
+    DexiePromise.newPSD (async function () {
+        innerPSD = Promise.PSD;
+        Promise.resolve()
+            .then(trans => {
+                return window.Promise.resolve().then(()=> {
+                    notStrictEqual(DexiePromise.PSD, outerPSD, "outerPSD does not leak in 1");
+                    strictEqual(Promise.PSD, innerPSD, "Transaction scopes should persist through Promise.resolve() 1");
+                    return db.items.add({ id: "foobar" });
+                }).then(()=>{
+                    return Promise.resolve();
+                }).then(()=>{
+                    notStrictEqual(Promise.PSD, outerPSD, "outerPSD does not leak in 2");
+                    strictEqual(Promise.PSD, innerPSD, "Transaction scopes should persist through Promise.resolve() 2");
+                    return Promise.resolve('foobar');
+                });
+            }).then (function(foobar){
+            strictEqual(foobar, 'foobar', "Transaction should have lived throughout the Promise.resolve() chain");
+            notStrictEqual(Promise.PSD, outerPSD, "outerPSD does not leak in 3");
+            strictEqual(Promise.PSD, innerPSD, "Transaction scopes should persist through Promise.resolve() 3");
+            }).catch (e => {
+                ok(false, `Error: ${e.stack || e}`);
+            }).finally(done);
+    });
+    notStrictEqual(DexiePromise.PSD, innerPSD, "innerPSD does not leak");
+    strictEqual(DexiePromise.PSD, outerPSD, "outerPSD does not leak in !out");
+});
+
+function callInNewPSD(cb) {
+    return DexiePromise.newPSD (async () => {
+        return Promise.resolve().then(cb);
+    })
+}
+
+//**************************************************************************************************************
+//********************************************** NEW TESTS *****************************************************
+//**************************************************************************************************************
+
+test("Should be able to use native async await NEW DEXIE.PROMISE", function(assert) {
+    let done = assert.async();
+    Dexie.Promise.resolve(idbAndPromiseCompatible).then(()=>{
+        let f = function f(ok,equal, Dexie, db) {
+            return db.transaction('rw', db.items, async ()=>{
+                let trans = Dexie.currentTransaction;
+                ok(!!trans, "Should have a current transaction");
+                await db.items.add({id: 'foo'});
+                ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of Dexie.Promise");
+                await Dexie.Promise.resolve();
+                ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of Dexie.Promise synch");
+                await window.Promise.resolve();
+                ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of global Promise");
+                await 3;
+                ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of primitive(!)");
+                await db.transaction('r', db.items, async innerTrans => {
+                    ok(!!innerTrans, "SHould have inner transaction");
+                    equal(Dexie.currentTransaction, innerTrans, "Inner transaction should be there");
+                    equal(innerTrans.parent, trans, "Parent transaction should be correct");
+                    let x = await db.items.get(1);
+                    ok(Dexie.currentTransaction === innerTrans, "Transaction persisted in inner transaction");
+                });
+                ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of sub transaction");
+                await (async ()=>{
+                    return await db.items.get(1);
+                })();
+                ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of async function");
+                await (async ()=>{
+                    await Promise.all([db.transaction('r', db.items, async() => {
+                        await db.items.get(1);
+                        await db.items.get(2);
+                    }), db.transaction('r', db.items, async() => {
+                        return await db.items.get(1);
+                    })]);
+                })();
+                ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of async function 2");
+
+                await window.Promise.resolve().then(()=>{
+                    ok(Dexie.currentTransaction === trans, "Transaction persisted after window.Promise.resolve().then()");
+                    return (async ()=>{})(); // Resolve with native promise
+                }).then(()=>{
+                    ok(Dexie.currentTransaction === trans, "Transaction persisted after native promise completion");
+                    return window.Promise.resolve();
+                }).then(()=>{
+                    ok(Dexie.currentTransaction === trans, "Transaction persisted after window.Promise.resolve().then()");
+                    return (async ()=>{})();
+                });
+                ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of mixed promises");
+
+                try {
+                    let foo = await db.items.get('foo');
+                    ok(true, "YOUR BROWSER HAS COMPATIBILITY BETWEEN NATIVE PROMISES AND INDEXEDDB!");
+                } catch (e) {
+                    ok(true, "Browser has no compatibility between native promises and indexedDB.");
+                }
+            });
+        };
+        return f(ok, equal, Dexie, db);
+    }).catch('IdbPromiseIncompatibleError', e => {
+        ok (true, `Promise and IndexedDB is incompatible on this browser. Native async await fails in idb transaction by reality`)
+    }).catch(e => {
+        if (hasNativeAsyncFunctions)
+            ok(false, `Error: ${e.stack || e}`);
+        else
+            ok(true, `This browser does not support native async functions`);
+    }).then(done);
+});
+
+test("Should be able to use native async await NEW", function(assert) {
+    let done = assert.async();
+    Dexie.Promise.resolve(idbAndPromiseCompatible).then(()=>{
+        let f = function f(ok,equal, Dexie, db) {
+            return db.transaction('rw', db.items, async ()=>{
+                let trans = Dexie.currentTransaction;
+                ok(!!trans, "Should have a current transaction");
+                await db.items.add({id: 'foo'});
+                ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of Dexie.Promise");
+                await Dexie.Promise.resolve();
+                ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of Dexie.Promise synch");
+                await window.Promise.resolve();
+                ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of global Promise");
+                await 3;
+                ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of primitive(!)");
+                await db.transaction('r', db.items, async innerTrans => {
+                    ok(!!innerTrans, "SHould have inner transaction");
+                    equal(Dexie.currentTransaction, innerTrans, "Inner transaction should be there");
+                    equal(innerTrans.parent, trans, "Parent transaction should be correct");
+                    let x = await db.items.get(1);
+                    ok(Dexie.currentTransaction === innerTrans, "Transaction persisted in inner transaction");
+                });
+                ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of sub transaction");
+                await (async ()=>{
+                    return await db.items.get(1);
+                })();
+                ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of async function");
+                await (async ()=>{
+                    await Promise.all([db.transaction('r', db.items, async() => {
+                        await db.items.get(1);
+                        await db.items.get(2);
+                    }), db.transaction('r', db.items, async() => {
+                        return await db.items.get(1);
+                    })]);
+                })();
+                ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of async function 2");
+
+                await window.Promise.resolve().then(()=>{
+                    ok(Dexie.currentTransaction === trans, "Transaction persisted after window.Promise.resolve().then()");
+                    return (async ()=>{})(); // Resolve with native promise
+                }).then(()=>{
+                    ok(Dexie.currentTransaction === trans, "Transaction persisted after native promise completion");
+                    return window.Promise.resolve();
+                }).then(()=>{
+                    ok(Dexie.currentTransaction === trans, "Transaction persisted after window.Promise.resolve().then()");
+                    return (async ()=>{})();
+                });
+                ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of mixed promises");
+
+                try {
+                    let foo = await db.items.get('foo');
+                    ok(true, "YOUR BROWSER HAS COMPATIBILITY BETWEEN NATIVE PROMISES AND INDEXEDDB!");
+                } catch (e) {
+                    ok(true, "Browser has no compatibility between native promises and indexedDB.");
+                }
+            });
+        };
+        return f(ok, equal, Dexie, db);
+    }).catch('IdbPromiseIncompatibleError', e => {
+        ok (true, `Promise and IndexedDB is incompatible on this browser. Native async await fails in idb transaction by reality`)
+    }).catch(e => {
+        if (hasNativeAsyncFunctions)
+            ok(false, `Error: ${e.stack || e}`);
+        else
+            ok(true, `This browser does not support native async functions`);
+    }).then(done);
 });
 
 test("Should be able to use native async await", function(assert) {
@@ -201,7 +362,7 @@ test("Should be able to use native async await", function(assert) {
     }).catch(e => {
         if (hasNativeAsyncFunctions)
             ok(false, `Error: ${e.stack || e}`);
-        else 
+        else
             ok(true, `This browser does not support native async functions`);
     }).then(done);
 });
@@ -244,7 +405,7 @@ test("Should be able to use native async await from upgrade handler (issue #612)
     }).catch(e => {
         if (hasNativeAsyncFunctions)
             ok(false, `Error: ${e.stack || e}`);
-        else 
+        else
             ok(true, `This browser does not support native async functions`);
     }).then(()=>{
         return Dexie.delete("issue612");
@@ -339,7 +500,7 @@ test("Must not leak PSD zone", async function(assert) {
 test("Must not leak PSD zone2", async function(assert) {
     let done = assert.async();
     ok(Dexie.currentTransaction === null, "Should not have an ongoing transaction to start with");
-    
+
 
     db.transaction('rw', db.items, ()=>{
         let trans = Dexie.currentTransaction;
@@ -359,7 +520,7 @@ test("Must not leak PSD zone2", async function(assert) {
             }
         });
         // In parallell with the above 2*100 async tasks are being executed and verified,
-        // maintain the transaction zone below:        
+        // maintain the transaction zone below:
         return db.items.get(1).then(()=>{ // Just to prohibit IDB bug in Safari - must use transaction in initial tick!
             return idbAndPromiseCompatible;
         }).then(()=> {
@@ -383,7 +544,7 @@ test("Must not leak PSD zone2", async function(assert) {
                 ok (true, `Promise and IndexedDB is incompatible on this browser. Native async await fails "by design" for indexedDB transactions`);
             } else if (hasNativeAsyncFunctions)
             ok(false, `Error: ${e.stack || e}`);
-            else 
+            else
                 ok(true, `This browser does not support native async functions`);
         }).then(()=>{
             // NativePromise
@@ -400,9 +561,7 @@ test("Must not leak PSD zone2", async function(assert) {
         }).then(()=>{
             ok(Dexie.currentTransaction === trans, "Still same transaction 5");
         });
-    }).catch(e => {
-        ok(false, `Error: ${e.stack || e}`);
-    }).then(done);
+    }).catch(signalError).then(done);
 });
 
 test("Should be able to await Promise.all()", async (assert) => {
@@ -411,7 +570,7 @@ test("Should be able to await Promise.all()", async (assert) => {
         ok(true, "Browser doesnt support native async-await");
         done();
         return;
-    }    
+    }
     let compatible = await idbAndPromiseCompatible.catch(()=>false);
     if (!compatible) {
         ok (true, `Promise and IndexedDB is incompatible on this browser. Native async await fails "by design" for indexedDB transactions`);
@@ -515,7 +674,7 @@ spawnedTest ("Sub Transactions with async await", function*() {
             equal (result, 3, "Result should be 3");
         })();`)(equal, ok, Dexie, db);
     } catch (e) {
-        ok(e.name === 'SyntaxError', "No support for native async functions in this browser");        
+        ok(e.name === 'SyntaxError', "No support for native async functions in this browser");
     }
 });
 
