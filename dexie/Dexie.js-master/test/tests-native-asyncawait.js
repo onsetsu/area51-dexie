@@ -2,13 +2,9 @@ import Dexie from 'dexie';
 import {DexiePromise} from './../src/helpers/promise.js';
 const {module, test, strictEqual, ok, notStrictEqual} = QUnit;
 import {resetDatabase, spawnedTest, promisedTest} from './dexie-unittest-utils';
-import {isIdbAndPromiseCompatible} from './is-idb-and-promise-compatible';
-
-const idbAndPromiseCompatible = isIdbAndPromiseCompatible();
 
 const hasNativeAsyncFunctions = false;
 try {
-
     hasNativeAsyncFunctions = !!new Function(`return (async ()=>{})();`)().then;
 } catch (e) {}
 
@@ -167,7 +163,7 @@ function callInNewPSD(cb) {
 
 test("Should be able to use native async await NEW DEXIE.PROMISE", function(assert) {
     let done = assert.async();
-    Dexie.Promise.resolve(idbAndPromiseCompatible).then(()=>{
+    Dexie.Promise.resolve().then(()=>{
         let f = function f(ok,equal, Dexie, db) {
             return db.transaction('rw', db.items, async ()=>{
                 let trans = Dexie.currentTransaction;
@@ -223,8 +219,6 @@ test("Should be able to use native async await NEW DEXIE.PROMISE", function(asse
             });
         };
         return f(ok, equal, Dexie, db);
-    }).catch('IdbPromiseIncompatibleError', e => {
-        ok (true, `Promise and IndexedDB is incompatible on this browser. Native async await fails in idb transaction by reality`)
     }).catch(e => {
         if (hasNativeAsyncFunctions)
             ok(false, `Error: ${e.stack || e}`);
@@ -235,7 +229,7 @@ test("Should be able to use native async await NEW DEXIE.PROMISE", function(asse
 
 test("Should be able to use native async await NEW", function(assert) {
     let done = assert.async();
-    Dexie.Promise.resolve(idbAndPromiseCompatible).then(()=>{
+    Dexie.Promise.resolve().then(()=>{
         let f = function f(ok,equal, Dexie, db) {
             return db.transaction('rw', db.items, async ()=>{
                 let trans = Dexie.currentTransaction;
@@ -291,8 +285,6 @@ test("Should be able to use native async await NEW", function(assert) {
             });
         };
         return f(ok, equal, Dexie, db);
-    }).catch('IdbPromiseIncompatibleError', e => {
-        ok (true, `Promise and IndexedDB is incompatible on this browser. Native async await fails in idb transaction by reality`)
     }).catch(e => {
         if (hasNativeAsyncFunctions)
             ok(false, `Error: ${e.stack || e}`);
@@ -303,7 +295,7 @@ test("Should be able to use native async await NEW", function(assert) {
 
 test("Should be able to use native async await", function(assert) {
     let done = assert.async();
-    Dexie.Promise.resolve(idbAndPromiseCompatible).then(()=>{
+    Dexie.Promise.resolve().then(()=>{
         let f = new Function('ok','equal', 'Dexie', 'db', `return db.transaction('rw', db.items, async ()=>{
             let trans = Dexie.currentTransaction;
             ok(!!trans, "Should have a current transaction");
@@ -357,8 +349,6 @@ test("Should be able to use native async await", function(assert) {
             }
         })`);
         return f(ok, equal, Dexie, db);
-    }).catch('IdbPromiseIncompatibleError', e => {
-        ok (true, `Promise and IndexedDB is incompatible on this browser. Native async await fails in idb transaction by reality`)
     }).catch(e => {
         if (hasNativeAsyncFunctions)
             ok(false, `Error: ${e.stack || e}`);
@@ -369,7 +359,7 @@ test("Should be able to use native async await", function(assert) {
 
 test("Should be able to use native async await from upgrade handler (issue #612)", function(assert) {
     let done = assert.async();
-    Dexie.Promise.resolve(idbAndPromiseCompatible).then(()=>{
+    Dexie.Promise.resolve().then(()=>{
         let f = new Function('ok','equal', 'Dexie', `
         return Dexie.delete('issue612').then(async ()=>{
           const log = [];
@@ -400,8 +390,6 @@ test("Should be able to use native async await from upgrade handler (issue #612)
           db.close();
         });`);
         return f(ok, equal, Dexie);
-    }).catch('IdbPromiseIncompatibleError', e => {
-        ok (true, `Promise and IndexedDB is incompatible on this browser. Native async await fails in idb transaction by reality`)
     }).catch(e => {
         if (hasNativeAsyncFunctions)
             ok(false, `Error: ${e.stack || e}`);
@@ -423,14 +411,7 @@ const NativePromise = (()=>{
 
 test("Must not leak PSD zone", async function(assert) {
     let done = assert.async();
-    let compatiblity = await idbAndPromiseCompatible.catch(e=>{
-        return false;
-    });
-    if (!compatiblity) {
-        ok (true, `Promise and IndexedDB is incompatible on this browser. Native async await fails "by design"`);
-        done();
-        return;
-    }
+
     if (!hasNativeAsyncFunctions) {
         ok(true, "Browser doesnt support native async-await");
         done();
@@ -522,7 +503,7 @@ test("Must not leak PSD zone2", async function(assert) {
         // In parallell with the above 2*100 async tasks are being executed and verified,
         // maintain the transaction zone below:
         return db.items.get(1).then(()=>{ // Just to prohibit IDB bug in Safari - must use transaction in initial tick!
-            return idbAndPromiseCompatible;
+            return;
         }).then(()=> {
             ok(Dexie.currentTransaction === trans, "Still same transaction 1");
             // Make sure native async functions maintains the zone:
@@ -540,10 +521,8 @@ test("Must not leak PSD zone2", async function(assert) {
             return f(ok, equal, Dexie, trans, NativePromise, db);
         }).catch (e => {
             // Could not test native async functions in this browser.
-            if (e.name === 'IdbPromiseIncompatibleError') {
-                ok (true, `Promise and IndexedDB is incompatible on this browser. Native async await fails "by design" for indexedDB transactions`);
-            } else if (hasNativeAsyncFunctions)
-            ok(false, `Error: ${e.stack || e}`);
+            if (hasNativeAsyncFunctions)
+                ok(false, `Error: ${e.stack || e}`);
             else
                 ok(true, `This browser does not support native async functions`);
         }).then(()=>{
@@ -566,17 +545,13 @@ test("Must not leak PSD zone2", async function(assert) {
 
 test("Should be able to await Promise.all()", async (assert) => {
     let done = assert.async();
+
     if (!hasNativeAsyncFunctions) {
         ok(true, "Browser doesnt support native async-await");
         done();
         return;
     }
-    let compatible = await idbAndPromiseCompatible.catch(()=>false);
-    if (!compatible) {
-        ok (true, `Promise and IndexedDB is incompatible on this browser. Native async await fails "by design" for indexedDB transactions`);
-        done();
-        return;
-    }
+
     (new Function('ok', 'equal', 'Dexie', 'db',
     `return db.transaction('r', db.items, async (trans)=>{
         ok(Dexie.currentTransaction === trans, "Correct initial transaction.");
@@ -648,11 +623,6 @@ spawnedTest("Even when keeping a reference to global Promise, still maintain PSD
 
 spawnedTest ("Sub Transactions with async await", function*() {
     try {
-        let compatible = yield idbAndPromiseCompatible.catch(()=>false);
-        if (!compatible) {
-            ok (true, `Promise and IndexedDB is incompatible on this browser. Native async await fails "by design" for indexedDB transactions`);
-            return;
-        }
 
         yield new Function ('equal', 'ok', 'Dexie', 'db', `return (async ()=>{
             await db.items.bulkAdd([{id: 1}, {id:2}, {id: 3}]);
@@ -747,12 +717,6 @@ promisedTest ("Should be able to use some simpe native async await even without 
         ok(true, "Browser doesnt support native async-await");
         return;
     }
-    
-    let compatible = await idbAndPromiseCompatible.catch(()=>false);
-    if (!compatible) {
-        ok (true, `Promise and IndexedDB is incompatible on this browser. Native async await fails "by design" for indexedDB transactions`);
-        return;
-    }
 
     await (new Function('ok', 'equal', 'Dexie', 'db',
     `return db.transaction('r', db.items, trans=> (async (trans) => {
@@ -770,12 +734,7 @@ promisedTest ("Should behave outside transactions as well", async () => {
         ok(true, "Browser doesnt support native async-await");
         return;
     }
-    let compatible = await idbAndPromiseCompatible.catch(()=>false);
-    if (!compatible) {
-        ok (true, `Promise and IndexedDB is incompatible on this browser. Native async await fails "by design" for indexedDB transactions`);
-        return;
-    }
-    
+
     await (new Function('ok', 'equal', 'Dexie', 'db', 'GlobalPromise',
     `async function doSomething() {
         ok(!Dexie.currentTransaction, "Should be at global scope.");
