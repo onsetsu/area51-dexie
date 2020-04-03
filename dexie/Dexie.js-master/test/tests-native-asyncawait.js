@@ -161,6 +161,10 @@ function callInNewPSD(cb) {
 //********************************************** NEW TESTS *****************************************************
 //**************************************************************************************************************
 
+function mostNativePromise() {
+    return crypto.subtle.digest("SHA-512", new Uint8Array([0]));
+}
+
 function fakeTransaction(cb) {
     return DexiePromise.newPSD(() => {
         return cb();
@@ -177,7 +181,7 @@ test("Should be able to use native async await NEW DEXIE.PROMISE", function(asse
                 inner.promise = Promise.PSD;
                 trans.foo = 'foo';
                 ok(!!trans, "Should have a current transaction");
-                await crypto.subtle.digest("SHA-512", new Uint8Array([0]));
+                await mostNativePromise();
                 ok(Promise.PSD === trans, "Transaction persisted between await calls of Dexie.Promise");
                 await Dexie.Promise.resolve();
                 ok(Promise.PSD === trans, "Transaction persisted between await calls of Dexie.Promise synch");
@@ -195,38 +199,41 @@ test("Should be able to use native async await NEW DEXIE.PROMISE", function(asse
                     ok(Promise.PSD === innermostPromise, "Transaction persisted through await in inner transaction");
                 });
                 ok(Promise.PSD === trans, "Transaction persisted between await calls of sub transaction");
-                // await (async ()=>{
-                //     return await db.items.get(1);
-                // })();
+                await (async ()=>{
+                    return await mostNativePromise();
+                })();
                 ok(Promise.PSD === trans, "Transaction persisted between await calls of async function");
-                // await (async ()=>{
-                //     await Promise.all([db.transaction('r', db.items, async() => {
-                //         await db.items.get(1);
-                //         await db.items.get(2);
-                //     }), db.transaction('r', db.items, async() => {
-                //         return await db.items.get(1);
-                //     })]);
-                // })();
-                // ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of async function 2");
-                //
-                // await window.Promise.resolve().then(()=>{
-                //     ok(Dexie.currentTransaction === trans, "Transaction persisted after window.Promise.resolve().then()");
-                //     return (async ()=>{})(); // Resolve with native promise
-                // }).then(()=>{
-                //     ok(Dexie.currentTransaction === trans, "Transaction persisted after native promise completion");
-                //     return window.Promise.resolve();
-                // }).then(()=>{
-                //     ok(Dexie.currentTransaction === trans, "Transaction persisted after window.Promise.resolve().then()");
-                //     return (async ()=>{})();
-                // });
-                // ok(Dexie.currentTransaction === trans, "Transaction persisted between await calls of mixed promises");
+
+                await (async ()=>{
+                    await Promise.all([
+                        fakeTransaction(async() => {
+                            await mostNativePromise();
+                            await mostNativePromise();
+                        }),
+                        fakeTransaction(async() => {
+                            return await mostNativePromise();
+                        })
+                    ]);
+                })();
+                ok(Promise.PSD === trans, "Transaction persisted between await calls of async function 2");
+
+                await window.Promise.resolve().then(()=>{
+                    ok(Promise.PSD === trans, "Transaction persisted after window.Promise.resolve().then()");
+                    return (async ()=>{})(); // Resolve with native promise
+                }).then(()=>{
+                    ok(Promise.PSD === trans, "Transaction persisted after native promise completion");
+                    return window.Promise.resolve();
+                }).then(()=>{
+                    ok(Promise.PSD === trans, "Transaction persisted after window.Promise.resolve().then()");
+                    return (async ()=>{})();
+                });
+                ok(Promise.PSD === trans, "Transaction persisted between await calls of mixed promises");
             });
         };
         const result =  f(ok, equal, Dexie, db, inner);
         notStrictEqual(Promise.PSD, inner.promise, "innerPSD did not leak");
         return result;
     }).catch(unsupportedNativeAwait).then(done);
-    // setTimeout(done, 3000)
 });
 
 test("Should be able to use native async await NEW", function(assert) {
