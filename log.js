@@ -23,3 +23,10 @@ function logStack(title) {
 function hr() {
     log('<hr />');
 }
+
+function cLog(c) {
+    return function l(msg) {
+        return log(`<span style='background-color: ${c}'>${msg}</span>`);
+    }
+}
+

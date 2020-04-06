@@ -46,12 +46,6 @@
             //
             log ("Ooops: " + error);
         });*/
-    function cLog(c) {
-        return function l(msg) {
-            return log(`<span style='background-color: ${c}'>${msg}</span>`);
-        }
-    }
-
     {
         const l = cLog('limegreen');
         // Create a PSD scope
@@ -101,6 +95,32 @@
                 log(`expect var on PSD to be 5 (AFTER new scope): ` + DexiePromise.PSD.test);
             });
         });
+
+        log(`expect var outside that scope NOT to be 5: ` + DexiePromise.PSD.test);
+    }
+    {
+
+        function mostNativePromise() {
+            return crypto.subtle.digest("SHA-512", new Uint8Array([0]));
+        }
+        const log = cLog('violet');
+        // Create a PSD scope
+        DexiePromise.newPSD(async ()=>{
+            let trans = Promise.PSD;
+            log(!!trans + "Should have a current transaction");
+            await Promise.resolve();
+            log((DexiePromise.PSD === trans )+ "Jumping over await 1");
+            await (async () => {})();
+            log((DexiePromise.PSD === trans)+ "Jumping over await 2");
+            await (async ()=>{
+                debugger
+                await mostNativePromise();
+                return
+            })();
+            log((DexiePromise.PSD === trans) + "Jumping over await 3");
+            await crypto.subtle.digest("SHA-512", new Uint8Array([0]))
+            log((DexiePromise.PSD === trans) +"Jumping over await 4");
+        })
 
         log(`expect var outside that scope NOT to be 5: ` + DexiePromise.PSD.test);
     }

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Understanding zone.js</title>
+    <link href="log.css" rel="stylesheet"/>
+    <script src="zone.js"></script>
+    <script src="log.js"></script>
+    <script src="nav.js"></script>
+</head>
+<body>
+<script type="text/javascript">insertNavigation();</script>
+
+<h1>zone.js</h1>
+<h3>Log</h3>
+
+</body>
+<script type="text/javascript">
+    {
+        const l = cLog('limegreen');
+
+        l('ZONE.JS DOES NOT SUPPORT ASYNC/AWAIT!!!');
+
+        // RootZone is ambient and it is indistinguishable from no Zone.
+        let rootZone = Zone.current;
+
+        // We create a new zone by forking an existing zone.
+        let zoneA = rootZone.fork({name: 'zoneA'});
+        // Each zone has a name for debugging
+        l('rootZone.name: ' + rootZone.name);
+        l('zoneA.name: ' + zoneA.name);
+        l('zoneA.parent.name: ' + zoneA.parent.name);
+
+        zoneA.run(function fnOuter() {
+            // inside the `run` method the Zone.current has been updated
+            l('Zone.current: ' + Zone.current.name);
+            logStack();
+
+            Promise.resolve().then(async () => {
+                l('Zone.current: ' + Zone.current.name);
+                logStack();
+
+                await Promise.resolve();
+
+                l('Zone.current: ' + Zone.current.name);
+                logStack();
+            })
+        });
+
+        hr();
+    }
+</script>
+</html>
