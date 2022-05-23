@@ -76,10 +76,10 @@
   },
   "homepage": "http://dexie.org",
   "peerDependencies": {
-    "dexie": "^2.0.4"
+    "dexie": "^3.2.2"
   },
   "devDependencies": {
-    "dexie": "^2.0.4",
+    "dexie": "^3.2.2",
     "eslint": "^5.16.0",
     "just-build": "^0.9.19",
     "karma": "^4.1.0",
